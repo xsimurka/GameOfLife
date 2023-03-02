@@ -1,10 +1,10 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
-import Data.Set
+import Data.Set (empty, union, fromList, Set)
 import System.Console.ANSI
 import System.IO
 import Text.Read (readMaybe)
-
+import Control.Monad (guard)
 
 data GamePlan = GamePlan { width :: Int
                          , height :: Int
@@ -13,27 +13,26 @@ data GamePlan = GamePlan { width :: Int
 
 parsePlanSize :: [String] -> Maybe (Int, Int)
 parsePlanSize lines = do  
-  let planSize = do
-        guard (lines == 2)
-        width <- readMaybe (head lines)
-        height <- readMaybe (last lines)
-        return (width, height)
-  return planSize
+    guard (length lines == 2)
+    width <- readMaybe $ head lines
+    height <- readMaybe $ last lines
+    return (width, height)
 
-parseInitialState :: [String] -> Set (Int, Int) -> Maybe (Set (Int, Int))
-parseInitialState plan set = do
+
+parseInitialState :: [String] -> Int -> Set (Int, Int)
+parseInitialState [] _= empty
+parseInitialState (h:t) r = union (parseInitialState' h r) (parseInitialState t (r + 1))
     
-parseInitialState' :: [String] -> Set (Int, Int) -> Maybe (Set (Int, Int))
-parseInitialState' plan set = do
+parseInitialState' :: String -> Int -> Set (Int, Int)
+parseInitialState' row index = fromList [(index, col) | col <- [0.. length row - 1], (!!) row col == '#']
 
-parseInputFile :: FilePath -> Maybe GamePlan
+parseInputFile :: FilePath -> IO (Maybe GamePlan)
 parseInputFile filepath = do
     handle <- openFile filepath ReadMode
     contents <- hGetContents handle
     hClose handle
-    let lines = lines contents
-    (width, height) <- parsePlanSize $ take 2 lines
-    let plan = drop 2 lines
-    guard (length plan == height && all ((== width) . len) plan)
-    initState <- parseInitialState (plan) empty
-    return $ GamePlan { width = width, height = height, field = initState }
+    let plan = lines contents
+    let (width, height) = parsePlanSize $ take 2 plan
+    
+    let initState = parseInitialState (drop 2 plan) 0
+    return $ Just GamePlan { width = width, height = height, field = initState }
