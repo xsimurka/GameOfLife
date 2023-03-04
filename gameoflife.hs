@@ -1,7 +1,7 @@
---{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NamedFieldPuns #-}
 module Main where
-import Data.Set (empty, union, fromList, Set)
-import System.Console.ANSI ()
+import Data.Set (empty, union, fromList, Set, elemAt, deleteAt)
+import System.Console.ANSI (clearScreen, setCursorPosition)
 import System.IO
 import Text.Read (readMaybe)
 import Control.Monad (guard)
@@ -39,7 +39,22 @@ parseInputFile filepath = do
     return $ Just GamePlan { width = width, height = height, field = initState }
 
 
+printToTerminal:: Maybe GamePlan -> IO ()
+printToTerminal (Just (GamePlan {width, height, field})) = do
+    if not (null field) then do
+        let (x, y) = elemAt 0 field
+        setCursorPosition x y
+        putStrLn "#"
+        let newField = deleteAt 0 field
+        printToTerminal (Just (GamePlan {width = width, height = height, field = newField}))
+                      else do return ()
+printToTerminal Nothing = do
+    putStrLn "Wrong input"
+
+
 main = do
     x <- getLine
     gamePlan <- parseInputFile x
-    print gamePlan
+    clearScreen
+    printToTerminal gamePlan
+    --print gamePlan
