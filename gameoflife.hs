@@ -39,7 +39,6 @@ parseInputFile filepath = do
     let initState = parseInitialState (drop 2 plan) 0
     return $ Just GamePlan { width = width, height = height, field = initState }
 
-
 printToTerminal:: GamePlan -> IO ()
 printToTerminal (GamePlan {width, height, field}) = do
     if not (null field) then do
@@ -65,7 +64,7 @@ numTimesFound x xs = (length . filter (== x)) xs
 countAdjascentAlive:: Set (Int, Int) -> (Int, Int) -> (Int, Int) -> Int
 countAdjascentAlive inputSet (w, h) (x, y) = do
     let positions = [(x-1, y-1), (x, y-1), (x+1, y-1), (x-1, y), (x+1, y), (x-1,y+1), (x,y+1), (x+1,y+1)]
-    numTimesFound True ( map (isAlive inputSet (w, h)) positions)
+    numTimesFound True (map (isAlive inputSet (w, h)) positions)
 
 nextPosition:: (Int, Int) -> (Int, Int) -> Maybe (Int, Int)
 nextPosition (w, h) (x, y) =
@@ -79,7 +78,6 @@ nextGamePlan:: GamePlan -> GamePlan
 nextGamePlan (GamePlan {width, height, field}) = do
     let newField = nextState field (width, height) (0, 0) empty
     GamePlan {width = width, height = height, field = newField}
-
 
 nextState:: Set (Int, Int) -> (Int, Int) -> (Int, Int) -> Set (Int, Int) -> Set (Int, Int)
 nextState inputSet (w, h) (x, y) buildingSet = do
@@ -108,12 +106,8 @@ loop gamePlan = do
     threadDelay 200000
     loop (nextGamePlan gamePlan)
 
-
 main = do
     x <- getLine
     gamePlan <- parseInputFile x
     hideCursor
     loop (fromJust gamePlan)
-    --if gamePlan == Nothing
-    --    then return ()
-    --    else loop (fromJust gamePlan)
