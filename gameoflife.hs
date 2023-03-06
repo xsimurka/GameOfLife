@@ -50,12 +50,12 @@ printToTerminal (GamePlan {width, height, field}) = do
                       else do return ()
 
 isAlive:: Set (Int, Int) -> (Int, Int) -> (Int, Int) -> Bool
-isAlive inputSet (w, h) (x, y) =
-    if x > w then False else
-    if x < 0 then False else
-    if y < 0 then False else
-    if y > h then False else
-    member (x, y) inputSet
+isAlive inputSet (w, h) (x, y)
+    | x > w = False
+    | x < 0 = False
+    | y < 0 = False
+    | y > h = False
+    | otherwise = member (x, y) inputSet
 
 numTimesFound :: Ord a => a -> [a] -> Int
 numTimesFound _ [] = 0
@@ -67,12 +67,10 @@ countAdjascentAlive inputSet (w, h) (x, y) = do
     numTimesFound True (map (isAlive inputSet (w, h)) positions)
 
 nextPosition:: (Int, Int) -> (Int, Int) -> Maybe (Int, Int)
-nextPosition (w, h) (x, y) =
-    if x+1 < w 
-        then Just (x+1, y)
-        else if y+1 < h
-            then Just (0, y+1)
-            else Nothing
+nextPosition (w, h) (x, y) 
+    | x + 1 < w = Just (x + 1, y)
+    | y + 1 < h = Just (0, y + 1)
+    | otherwise = Nothing
 
 nextGamePlan:: GamePlan -> GamePlan
 nextGamePlan (GamePlan {width, height, field}) = do
@@ -86,16 +84,16 @@ nextState inputSet (w, h) (x, y) buildingSet = do
     if member (x, y) inputSet 
         then do
             let nextSet = if adjAlive == 2 || adjAlive == 3
-                then buildingSet `union` (singleton (x, y))
+                then buildingSet `union` singleton (x, y)
                 else buildingSet
-            if nextPos == Nothing
+            if isNothing nextPos
                 then nextSet
                 else nextState inputSet (w, h) (fromJust nextPos) nextSet
         else do
             let nextSet = if adjAlive == 3
                 then buildingSet `union` (singleton (x, y))
                 else buildingSet
-            if nextPos == Nothing
+            if isNothing nextPos
                 then nextSet
                 else nextState inputSet (w, h) (fromJust nextPos) nextSet
 
@@ -109,5 +107,7 @@ loop gamePlan = do
 main = do
     x <- getLine
     gamePlan <- parseInputFile x
+    --print gamePlan
+    --print $ nextGamePlan (fromJust gamePlan)
     hideCursor
     loop (fromJust gamePlan)
