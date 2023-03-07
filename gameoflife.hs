@@ -17,12 +17,8 @@ data GamePlan = GamePlan { width :: Int
                          , field :: Set Position
                          } deriving Show
 
-parsePlanSize :: [String] -> Maybe Size
-parsePlanSize lines = do
-    guard (length lines == 2)
-    width <- readMaybe $ head lines
-    height <- readMaybe $ last lines
-    return (width, height)
+parsePlanSize :: [String] -> Size
+parsePlanSize [width, height] = (read width, read height)
 
 parseInitialState :: [String] -> Int -> Set Position
 parseInitialState [] _= empty
@@ -38,7 +34,7 @@ parseInputFile filepath = do
     print contents
     hClose handle
     let plan = lines contents
-    let Just (width, height) = parsePlanSize $ take 2 plan
+    let (width, height) = parsePlanSize $ take 2 plan
     let initState = parseInitialState (drop 2 plan) 0
     return $ Just GamePlan { width = width, height = height, field = initState }
 
@@ -52,8 +48,8 @@ printToTerminal (GamePlan {width, height, field}) = do
         printToTerminal (GamePlan {width = width, height = height, field = newField})
                       else do return ()
 
-isAlive:: Set Position -> Size -> Position -> Bool
-isAlive inputSet (w, h) (x, y)
+isAlive:: GamePlan -> Position -> Bool
+isAlive (GamePlan{width=w, height=h, field=inputSet}) (x, y)
     | x >= w = False
     | x < 0 = False
     | y < 0 = False
@@ -64,10 +60,10 @@ numTimesFound :: Ord a => a -> [a] -> Int
 numTimesFound _ [] = 0
 numTimesFound x xs = (length . filter (== x)) xs
 
-countAdjascentAlive:: Set Position -> Size -> Position -> Int
-countAdjascentAlive inputSet (w, h) (x, y) = do
+countAdjascentAlive:: GamePlan -> Position -> Int
+countAdjascentAlive gamePlan (x, y) = do
     let positions = [(x-1, y-1), (x, y-1), (x+1, y-1), (x-1, y), (x+1, y), (x-1,y+1), (x,y+1), (x+1,y+1)]
-    numTimesFound True (map (isAlive inputSet (w, h)) positions)
+    numTimesFound True (map (isAlive gamePlan) positions)
 
 nextPosition:: Size -> Position -> Maybe Position
 nextPosition (w, h) (x, y) 
@@ -82,7 +78,7 @@ nextGamePlan gamePlan = do
 
 nextState:: GamePlan -> Position -> Set Position -> Set Position
 nextState gamePlan@(GamePlan{width=w, height=h, field=inputSet}) (x, y) buildingSet = do
-    let adjAlive = countAdjascentAlive inputSet (w, h) (x, y)
+    let adjAlive = countAdjascentAlive gamePlan (x, y)
     let nextPos = nextPosition (w, h) (x, y)
     if member (x, y) inputSet 
         then do
