@@ -25,9 +25,9 @@ parseInitialState [] _= empty
 parseInitialState (h:t) r = parseInitialState' h r `union` parseInitialState t (r + 1)
     
 parseInitialState' :: String -> Int -> Set Position
-parseInitialState' row index = fromList [(index, col) | col <- [0.. length row - 1], (!!) row col == '#']
+parseInitialState' row index = fromList [(col, index) | col <- [0.. length row - 1], (!!) row col == '#']
 
-parseInputFile :: FilePath -> IO (Maybe GamePlan)
+parseInputFile :: FilePath -> IO GamePlan
 parseInputFile filepath = do
     handle <- openFile filepath ReadMode
     contents <- hGetContents handle
@@ -36,13 +36,13 @@ parseInputFile filepath = do
     let plan = lines contents
     let (width, height) = parsePlanSize $ take 2 plan
     let initState = parseInitialState (drop 2 plan) 0
-    return $ Just GamePlan { width = width, height = height, field = initState }
+    return $ GamePlan { width = width, height = height, field = initState }
 
 printToTerminal:: GamePlan -> IO ()
 printToTerminal (GamePlan {width, height, field}) = do
     if not (null field) then do
         let (x, y) = elemAt 0 field
-        setCursorPosition x y
+        setCursorPosition y x
         putStrLn "#"
         let newField = deleteAt 0 field
         printToTerminal (GamePlan {width = width, height = height, field = newField})
@@ -101,11 +101,26 @@ loop gamePlan = do
     clearScreen
     printToTerminal gamePlan
     threadDelay 200000
-    loop (nextGamePlan gamePlan)
+    (loop . nextGamePlan) gamePlan
 
 main :: IO ()
 main = do
     x <- getLine
     gamePlan <- parseInputFile x
     hideCursor
-    loop (fromJust gamePlan)
+    loop gamePlan
+
+{-
+    print $ nextPosition (2, 3) (0, 0)
+    print $ nextPosition (2, 3) (1, 0)
+    print $ nextPosition (2, 3) (1, 1)
+    print $ nextPosition (2, 3) (1, 2)
+    let gp@GamePlan{width, height, field} = fromJust gamePlan
+    print width
+    print height
+    print gp
+    print $ countAdjascentAlive gp (0, 0) == 0
+    print $ countAdjascentAlive gp (5, 0) == 2
+    print $ countAdjascentAlive gp (6, 1) == 3
+    print $ nextState gp (0, 0) empty
+-}
