@@ -24,7 +24,6 @@ parsePlanSize lines = do
     height <- readMaybe $ last lines
     return (width, height)
 
-
 parseInitialState :: [String] -> Int -> Set Position
 parseInitialState [] _= empty
 parseInitialState (h:t) r = parseInitialState' h r `union` parseInitialState t (r + 1)
@@ -77,12 +76,12 @@ nextPosition (w, h) (x, y)
     | otherwise = Nothing
 
 nextGamePlan:: GamePlan -> GamePlan
-nextGamePlan (GamePlan {width, height, field}) = do
-    let newField = nextState field (width, height) (0, 0) empty
-    GamePlan {width = width, height = height, field = newField}
+nextGamePlan gamePlan = do
+    let newField = nextState gamePlan (0, 0) empty
+    gamePlan{field = newField}
 
-nextState:: Set Position -> Size -> Position -> Set Position -> Set Position
-nextState inputSet (w, h) (x, y) buildingSet = do
+nextState:: GamePlan -> Position -> Set Position -> Set Position
+nextState gamePlan@(GamePlan{width=w, height=h, field=inputSet}) (x, y) buildingSet = do
     let adjAlive = countAdjascentAlive inputSet (w, h) (x, y)
     let nextPos = nextPosition (w, h) (x, y)
     if member (x, y) inputSet 
@@ -92,14 +91,14 @@ nextState inputSet (w, h) (x, y) buildingSet = do
                 else buildingSet
             if isNothing nextPos
                 then nextSet
-                else nextState inputSet (w, h) (fromJust nextPos) nextSet
+                else nextState gamePlan (fromJust nextPos) nextSet
         else do
             let nextSet = if adjAlive == 3
                 then buildingSet `union` singleton (x, y)
                 else buildingSet
             if isNothing nextPos
                 then nextSet
-                else nextState inputSet (w, h) (fromJust nextPos) nextSet
+                else nextState gamePlan (fromJust nextPos) nextSet
 
 loop:: GamePlan -> IO ()
 loop gamePlan = do
@@ -112,7 +111,5 @@ main :: IO ()
 main = do
     x <- getLine
     gamePlan <- parseInputFile x
-    --print gamePlan
-    --print $ nextGamePlan (fromJust gamePlan)
     hideCursor
     loop (fromJust gamePlan)
