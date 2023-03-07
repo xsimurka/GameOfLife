@@ -3,29 +3,33 @@ module Main where
 import Data.Set (empty, union, fromList, Set, elemAt, deleteAt, member, singleton )
 import System.Console.ANSI (clearScreen, setCursorPosition, hideCursor)
 import System.IO
-import Data.Maybe
+    ( hClose, hGetContents, openFile, IOMode(ReadMode) )
+import Data.Maybe ( fromJust, isNothing )
 import Text.Read (readMaybe)
 import Control.Monad (guard)
 import Control.Concurrent (threadDelay)
 
+
+type Position = (Int, Int)
+type Size = (Int, Int)
 data GamePlan = GamePlan { width :: Int
                          , height :: Int
-                         , field :: Set (Int, Int)
+                         , field :: Set Position
                          } deriving Show
 
-parsePlanSize :: [String] -> Maybe (Int, Int)
-parsePlanSize lines = do  
+parsePlanSize :: [String] -> Maybe Size
+parsePlanSize lines = do
     guard (length lines == 2)
     width <- readMaybe $ head lines
     height <- readMaybe $ last lines
     return (width, height)
 
 
-parseInitialState :: [String] -> Int -> Set (Int, Int)
+parseInitialState :: [String] -> Int -> Set Position
 parseInitialState [] _= empty
 parseInitialState (h:t) r = parseInitialState' h r `union` parseInitialState t (r + 1)
     
-parseInitialState' :: String -> Int -> Set (Int, Int)
+parseInitialState' :: String -> Int -> Set Position
 parseInitialState' row index = fromList [(index, col) | col <- [0.. length row - 1], (!!) row col == '#']
 
 parseInputFile :: FilePath -> IO (Maybe GamePlan)
@@ -49,24 +53,24 @@ printToTerminal (GamePlan {width, height, field}) = do
         printToTerminal (GamePlan {width = width, height = height, field = newField})
                       else do return ()
 
-isAlive:: Set (Int, Int) -> (Int, Int) -> (Int, Int) -> Bool
+isAlive:: Set Position -> Size -> Position -> Bool
 isAlive inputSet (w, h) (x, y)
-    | x > w = False
+    | x >= w = False
     | x < 0 = False
     | y < 0 = False
-    | y > h = False
+    | y >= h = False
     | otherwise = member (x, y) inputSet
 
 numTimesFound :: Ord a => a -> [a] -> Int
 numTimesFound _ [] = 0
 numTimesFound x xs = (length . filter (== x)) xs
 
-countAdjascentAlive:: Set (Int, Int) -> (Int, Int) -> (Int, Int) -> Int
+countAdjascentAlive:: Set Position -> Size -> Position -> Int
 countAdjascentAlive inputSet (w, h) (x, y) = do
     let positions = [(x-1, y-1), (x, y-1), (x+1, y-1), (x-1, y), (x+1, y), (x-1,y+1), (x,y+1), (x+1,y+1)]
     numTimesFound True (map (isAlive inputSet (w, h)) positions)
 
-nextPosition:: (Int, Int) -> (Int, Int) -> Maybe (Int, Int)
+nextPosition:: Size -> Position -> Maybe Position
 nextPosition (w, h) (x, y) 
     | x + 1 < w = Just (x + 1, y)
     | y + 1 < h = Just (0, y + 1)
@@ -77,7 +81,7 @@ nextGamePlan (GamePlan {width, height, field}) = do
     let newField = nextState field (width, height) (0, 0) empty
     GamePlan {width = width, height = height, field = newField}
 
-nextState:: Set (Int, Int) -> (Int, Int) -> (Int, Int) -> Set (Int, Int) -> Set (Int, Int)
+nextState:: Set Position -> Size -> Position -> Set Position -> Set Position
 nextState inputSet (w, h) (x, y) buildingSet = do
     let adjAlive = countAdjascentAlive inputSet (w, h) (x, y)
     let nextPos = nextPosition (w, h) (x, y)
@@ -91,7 +95,7 @@ nextState inputSet (w, h) (x, y) buildingSet = do
                 else nextState inputSet (w, h) (fromJust nextPos) nextSet
         else do
             let nextSet = if adjAlive == 3
-                then buildingSet `union` (singleton (x, y))
+                then buildingSet `union` singleton (x, y)
                 else buildingSet
             if isNothing nextPos
                 then nextSet
@@ -104,6 +108,7 @@ loop gamePlan = do
     threadDelay 200000
     loop (nextGamePlan gamePlan)
 
+main :: IO ()
 main = do
     x <- getLine
     gamePlan <- parseInputFile x
