@@ -1,7 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Main where
-import Data.Set (empty, union, fromList, Set, elemAt, deleteAt, member, singleton )
+import Data.Set (empty, union, fromList, Set, elemAt, deleteAt, member)
 import System.Console.ANSI (clearScreen, setCursorPosition, hideCursor)
 import System.IO
 import Data.Maybe
@@ -16,20 +16,11 @@ data GamePlan = GamePlan {  width  :: Int,
                             field  :: Set (Int, Int)
                             } 
 
-parsePlanSize :: [String] -> Coords
-parsePlanSize [line1, line2] = (read line1, read line2) 
-
 parseInitialState :: [String] -> Int -> Set Coords
 parseInitialState [] _ = empty
-parseInitialState (h:t) r = parseInitialState' h r `union` parseInitialState t (r + 1)
-    
-parseInitialState' :: String -> Int -> Set Coords
-parseInitialState' row index = fromList [(col, index) | col <- [0.. length row - 1], (!!) row col == '#']
-
-readContent :: FilePath -> IO String
-readContent filepath = withFile filepath ReadMode $ \h -> do 
-    contents <- hGetContents h
-    return $!! force contents
+parseInitialState (h:t) r = parseInitialStateRec h r `union` parseInitialState t (r + 1)
+    where parseInitialStateRec row index = fromList [(col, index) | 
+            col <- [0.. length row - 1], (!!) row col == '#']
 
 parseInputFile :: FilePath -> IO GamePlan
 parseInputFile filepath = do
@@ -38,50 +29,52 @@ parseInputFile filepath = do
     let (width, height) = parsePlanSize $ take 2 plan
     let initState = parseInitialState (drop 2 plan) 0
     return $ GamePlan { width = width, height = height, field = initState }
-
-printToTerminal:: GamePlan -> IO ()
-printToTerminal (GamePlan {width, height, field}) = do
+    where 
+        parsePlanSize [line1, line2] = (read line1, read line2) 
+        readContent filepath = withFile filepath ReadMode $ \h -> do 
+            contents <- hGetContents h
+            return $!! force contents
+    
+printGamePlan:: GamePlan -> IO ()
+printGamePlan gp@(GamePlan { field }) = do
     if null field
         then return ()
         else do
             let (x, y) = elemAt 0 field
             setCursorPosition y x
             putStrLn "#"
-            printToTerminal $ GamePlan {width = width, height = height, field = deleteAt 0 field}
+            printGamePlan $ gp { field = deleteAt 0 field }
 
 countLivingNeighbours:: GamePlan -> Coords -> Int
-countLivingNeighbours gp@(GamePlan {width, height, field}) (x, y) = 
+countLivingNeighbours gp (x, y) = 
     let neighbours = [(x+a, y+b) | a <- [-1..1], b <- [-1..1], a /= 0 || b /= 0]
     in (length . filter id . map (isAlive gp)) neighbours
 
 nextGamePlan:: GamePlan -> GamePlan
-nextGamePlan gp@(GamePlan {width, height, field}) = 
-    GamePlan {width = width, height = height, field = nextState gp}
-
-nextState :: GamePlan -> Set Coords
-nextState gp@(GamePlan {width, height, field}) = fromList [(row, col) | 
-    col <- [0.. width-1], row <- [0.. height-1], willBeAlive gp (row, col)]
+nextGamePlan gp = gp {field = nextState gp}
+    where nextState gp@(GamePlan { width, height }) = fromList [(row, col) | 
+            col <- [0.. width - 1], row <- [0.. height - 1], willBeAlive gp (row, col)]
 
 isAlive :: GamePlan -> Coords -> Bool
-isAlive gp@(GamePlan {width, height, field}) (row, col) = 
+isAlive (GamePlan { width, height, field }) (row, col) = 
     not (row >= width || row < 0 || col < 0 || col >= height) && member (row, col) field
 
 willBeAlive :: GamePlan -> Coords -> Bool
-willBeAlive gp@(GamePlan {width, height, field}) coords =
-    let livingNeighbours = countLivingNeighbours gp coords
-    in if isAlive gp coords 
-        then livingNeighbours `elem` [2,3]
-        else livingNeighbours == 3 
+willBeAlive gp coords = let livingNeighbours = countLivingNeighbours gp coords
+                        in if isAlive gp coords 
+                            then livingNeighbours `elem` [2,3]
+                            else livingNeighbours == 3 
 
 simulate:: GamePlan -> IO ()
 simulate gamePlan = do
     clearScreen
-    printToTerminal gamePlan
+    printGamePlan gamePlan
     threadDelay 200000
     simulate $ nextGamePlan gamePlan
 
+main :: IO ()
 main = do
-    f <- getLine
-    gamePlan <- parseInputFile f
+    filePath <- getLine
+    gamePlan <- parseInputFile filePath
     hideCursor
     simulate gamePlan
