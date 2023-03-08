@@ -5,6 +5,7 @@ import Data.Set (empty, union, fromList, Set, elemAt, deleteAt, member, singleto
 import System.Console.ANSI (clearScreen, setCursorPosition, hideCursor)
 import System.IO
 import Data.Maybe
+import Control.DeepSeq 
 import Text.Read (readMaybe)
 import Control.Monad (guard)
 import Control.Concurrent (threadDelay)
@@ -25,12 +26,14 @@ parseInitialState (h:t) r = parseInitialState' h r `union` parseInitialState t (
 parseInitialState' :: String -> Int -> Set Coords
 parseInitialState' row index = fromList [(col, index) | col <- [0.. length row - 1], (!!) row col == '#']
 
+readContent :: FilePath -> IO String
+readContent filepath = withFile filepath ReadMode $ \h -> do 
+    contents <- hGetContents h
+    return $!! force contents
+
 parseInputFile :: FilePath -> IO GamePlan
 parseInputFile filepath = do
-    handle <- openFile filepath ReadMode
-    contents <- hGetContents handle
-    print contents
-    hClose handle
+    contents <- readContent filepath
     let plan = lines contents
     let (width, height) = parsePlanSize $ take 2 plan
     let initState = parseInitialState (drop 2 plan) 0
