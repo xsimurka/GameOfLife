@@ -3,11 +3,6 @@
 module Main where
 import Data.Set (empty, union, fromList, Set, elemAt, deleteAt, member)
 import System.Console.ANSI (clearScreen, setCursorPosition, hideCursor)
-import System.IO
-import Data.Maybe
-import Control.DeepSeq 
-import Text.Read (readMaybe)
-import Control.Monad (guard)
 import Control.Concurrent (threadDelay)
 
 type Coords = (Int, Int)
@@ -24,19 +19,14 @@ parseInitialState (h:t) r = parseInitialStateRec h r `union` parseInitialState t
 
 parseInputFile :: FilePath -> IO GamePlan
 parseInputFile filepath = do
-    contents <- readContent filepath
+    contents <- readFile filepath
     let plan = lines contents
-    let (width, height) = parsePlanSize $ take 2 plan
+    let (width, height) = (\x -> (head x, (head . tail) x)) (map read (take 2 plan))
     let initState = parseInitialState (drop 2 plan) 0
     return $ GamePlan { width = width, height = height, field = initState }
-    where 
-        parsePlanSize [line1, line2] = (read line1, read line2) 
-        readContent filepath = withFile filepath ReadMode $ \h -> do 
-            contents <- hGetContents h
-            return $!! force contents
     
 printGamePlan:: GamePlan -> IO ()
-printGamePlan gp@(GamePlan { field }) = do
+printGamePlan gp@GamePlan { field } = do
     if null field
         then return ()
         else do
@@ -52,11 +42,11 @@ countLivingNeighbours gp (x, y) =
 
 nextGamePlan:: GamePlan -> GamePlan
 nextGamePlan gp = gp {field = nextState gp}
-    where nextState gp@(GamePlan { width, height }) = fromList [(row, col) | 
-            col <- [0.. width - 1], row <- [0.. height - 1], willBeAlive gp (row, col)]
+    where nextState gp'@GamePlan { width, height } = fromList [(row, col) | 
+            col <- [0.. width - 1], row <- [0.. height - 1], willBeAlive gp' (row, col)]
 
 isAlive :: GamePlan -> Coords -> Bool
-isAlive (GamePlan { width, height, field }) (row, col) = 
+isAlive GamePlan { width, height, field } (row, col) = 
     not (row >= width || row < 0 || col < 0 || col >= height) && member (row, col) field
 
 willBeAlive :: GamePlan -> Coords -> Bool
